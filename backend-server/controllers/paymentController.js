@@ -1,7 +1,7 @@
+const { calculateAggregateSalary } = require('../utils/salaryCalculator');
 const Payment = require('../models/Payment');
 const Worker = require('../models/Worker');
 const Attendance = require('../models/Attendance');
-const { calculateAggregateSalary } = require('../utils/salaryCalculator');
 
 // @desc    Generate salary calculation for a period
 // @route   GET /api/payments/generate/:workerId?startDate=YYYY-MM-DD&endDate=YYYY-MM-DD
@@ -35,8 +35,16 @@ const generateSalary = async (req, res) => {
             return res.status(404).json({ success: false, error: 'No attendance records found for this period' });
         }
 
+        // 2.5 Fetch existing payments to check settlement status
+        const payments = await Payment.find({
+            workerId,
+            $or: [
+                { periodStart: { $lte: endDate }, periodEnd: { $gte: startDate } }
+            ]
+        });
+
         // 3. Run Salary Calculation Engine
-        const salaryData = calculateAggregateSalary(attendanceRecords);
+        const salaryData = calculateAggregateSalary(startDate, endDate, attendanceRecords, payments);
 
         res.status(200).json({
             success: true,

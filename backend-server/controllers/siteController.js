@@ -1,4 +1,5 @@
 const Site = require('../models/Site');
+const { uploadToCloudinary } = require('../utils/cloudinaryConfig');
 
 // @desc    Get all active sites
 // @route   GET /api/sites
@@ -17,8 +18,14 @@ const getSites = async (req, res) => {
 // @access  Private
 const createSite = async (req, res) => {
     try {
+        let imageUrl = req.body.imageUrl;
+        if (imageUrl && imageUrl.startsWith('data:image')) {
+            imageUrl = await uploadToCloudinary(imageUrl);
+        }
+
         const site = await Site.create({
             ...req.body,
+            imageUrl,
             contractorId: req.user?.id || '64a1b2c3d4e5f60012345678' // Fallback for dev
         });
         res.status(201).json({ success: true, data: site });

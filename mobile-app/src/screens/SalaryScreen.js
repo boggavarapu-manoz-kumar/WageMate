@@ -231,6 +231,30 @@ const SalaryScreen = ({ navigation }) => {
                                 <SlipRow label="Overtime (OT)" value={salaryData.financials.totalOvertimePay} />
                                 <SlipRow label="Total Bonuses" value={salaryData.financials.totalBonus} />
                                 <SlipRow label="Advances Deducted" value={salaryData.financials.totalAdvancesDeducted} isNegative={true} />
+                                {salaryData.financials.totalAlreadyPaid > 0 && (
+                                    <SlipRow label="Previously Settled" value={salaryData.financials.totalAlreadyPaid} isNegative={true} />
+                                )}
+
+                                {salaryData.dailyHistory && salaryData.dailyHistory.length > 0 && (
+                                    <View style={styles.historyTable}>
+                                        <Text style={styles.tableTitle}>Daily Breakdown</Text>
+                                        {salaryData.dailyHistory.map((day, idx) => (
+                                            <View key={idx} style={[styles.tableRow, idx === salaryData.dailyHistory.length - 1 && { borderBottomWidth: 0 }]}>
+                                                <View>
+                                                    <Text style={styles.dayName}>{day.dayName}, {new Date(day.date).toLocaleDateString('en-US', {month: 'short', day: 'numeric'})}</Text>
+                                                    <Text style={[styles.dayStatus, day.status === 'Absent' ? {color: '#ef4444'} : {color: '#10b981'}]}>
+                                                        {day.status}
+                                                    </Text>
+                                                    {day.isSettled && <Text style={{fontSize: 10, color:'#b91c1c', fontWeight: 'bold', marginTop: 2}}>⚠ Payment Already Settled</Text>}
+                                                </View>
+                                                <View style={{alignItems: 'flex-end'}}>
+                                                    <Text style={styles.dayAmount}>+ ₹{day.amount}</Text>
+                                                    {day.advance > 0 && <Text style={styles.dayAdvance}>- ₹{day.advance} (Adv)</Text>}
+                                                </View>
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
 
                                 <View style={styles.paymentMethodSection}>
                                     <View style={styles.rowLabel}>
@@ -264,16 +288,18 @@ const SalaryScreen = ({ navigation }) => {
                         </View>
 
                         <TouchableOpacity
-                            style={[styles.payBtn, paying && styles.disabledBtn]}
+                            style={[styles.payBtn, (paying || salaryData.financials.netPayable <= 0) && styles.disabledBtn]}
                             onPress={handlePayment}
-                            disabled={paying}
+                            disabled={paying || salaryData.financials.netPayable <= 0}
                             activeOpacity={0.8}
                         >
                             {paying ? (
                                 <ActivityIndicator color="#fff" />
                             ) : (
                                 <View style={styles.btnRow}>
-                                    <Text style={styles.payBtnText}>Settle Payment</Text>
+                                    <Text style={styles.payBtnText}>
+                                        {salaryData.financials.netPayable <= 0 ? "Fully Paid" : "Settle Payment"}
+                                    </Text>
                                     <Text style={styles.btnIcon}>💸</Text>
                                 </View>
                             )}
@@ -368,6 +394,14 @@ const styles = StyleSheet.create({
 
     slipFooter: { backgroundColor: '#f8fafc', padding: 16, alignItems: 'center' },
     footerBrand: { fontSize: 10, color: '#cbd5e1', fontWeight: '700', letterSpacing: 0.5 },
+
+    historyTable: { marginTop: 20, marginBottom: 20, backgroundColor: '#f8fafc', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' },
+    tableTitle: { fontSize: 15, fontWeight: '800', color: '#0f172a', marginBottom: 12 },
+    tableRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+    dayName: { fontSize: 14, fontWeight: '700', color: '#334155' },
+    dayStatus: { fontSize: 12, fontWeight: '600', marginTop: 2 },
+    dayAmount: { fontSize: 14, fontWeight: '700', color: '#0f172a' },
+    dayAdvance: { fontSize: 12, fontWeight: '600', color: '#ef4444', marginTop: 2 },
 
     payBtn: {
         backgroundColor: '#059669', padding: 20, borderRadius: 22, alignItems: 'center', marginTop: 24,

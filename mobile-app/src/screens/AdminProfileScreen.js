@@ -1,13 +1,50 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as LocalAuthentication from 'expo-local-authentication';
 
 const AdminProfileScreen = ({ navigation }) => {
     const [userData, setUserData] = useState(null);
+    const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
+    const [isBiometricSupported, setIsBiometricSupported] = useState(false);
 
     useEffect(() => {
         loadUserData();
+        checkBiometricStatus();
     }, []);
+
+    const checkBiometricStatus = async () => {
+        const supported = await LocalAuthentication.hasHardwareAsync();
+        setIsBiometricSupported(supported);
+        const enabled = await AsyncStorage.getItem('fingerprintEnabled');
+        setIsBiometricEnabled(enabled === 'true');
+    };
+
+    const toggleBiometrics = async () => {
+        if (!isBiometricEnabled) {
+            // Enabling
+            const enrolled = await LocalAuthentication.isEnrolledAsync();
+            if (!enrolled) {
+                Alert.alert('No Fingerprint Found', 'Please set up a fingerprint in your device settings first.');
+                return;
+            }
+
+            const result = await LocalAuthentication.authenticateAsync({
+                promptMessage: 'Confirm fingerprint for WageMate',
+            });
+
+            if (result.success) {
+                await AsyncStorage.setItem('fingerprintEnabled', 'true');
+                setIsBiometricEnabled(true);
+                Alert.alert('Success', 'Fingerprint login enabled flawlessly.');
+            }
+        } else {
+            // Disabling
+            await AsyncStorage.setItem('fingerprintEnabled', 'false');
+            setIsBiometricEnabled(false);
+            Alert.alert('Disabled', 'Fingerprint login has been turned off.');
+        }
+    };
 
     const loadUserData = async () => {
         try {
@@ -27,6 +64,7 @@ const AdminProfileScreen = ({ navigation }) => {
                 text: 'Sign Out',
                 style: 'destructive',
                 onPress: async () => {
+                    // Do NOT remove fingerprintEnabled here, only session data
                     await AsyncStorage.removeItem('userToken');
                     await AsyncStorage.removeItem('userData');
                     navigation.replace('Login');
@@ -66,6 +104,23 @@ const AdminProfileScreen = ({ navigation }) => {
                         <Text style={styles.actionText}>App Settings</Text>
                     </TouchableOpacity>
                     <View style={styles.divider} />
+                    {isBiometricSupported && (
+                        <>
+                            <TouchableOpacity style={styles.actionBtn} onPress={toggleBiometrics}>
+                                <Text style={styles.actionIcon}>☝️</Text>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.actionText}>Fingerprint Login</Text>
+                                    <Text style={styles.actionSubtext}>
+                                        {isBiometricEnabled ? 'Enabled for secure access' : 'Tap to enable secure login'}
+                                    </Text>
+                                </View>
+                                <View style={[styles.statusIndicator, isBiometricEnabled ? styles.statusOn : styles.statusOff]}>
+                                    <View style={styles.statusInner} />
+                                </View>
+                            </TouchableOpacity>
+                            <View style={styles.divider} />
+                        </>
+                    )}
                     <TouchableOpacity style={styles.actionBtn}>
                         <Text style={styles.actionIcon}>🔒</Text>
                         <Text style={styles.actionText}>Change Password</Text>
@@ -111,7 +166,13 @@ const styles = StyleSheet.create({
     },
     actionBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
     actionIcon: { fontSize: 20, marginRight: 16 },
-    actionText: { fontSize: 16, fontWeight: '600', color: '#1e293b' }
+    actionText: { fontSize: 16, fontWeight: '600', color: '#1e293b' },
+    actionSubtext: { fontSize: 11, color: '#94a3b8', fontWeight: '500', marginTop: 2 },
+    
+    statusIndicator: { width: 32, height: 18, borderRadius: 9, padding: 2, justifyContent: 'center' },
+    statusOn: { backgroundColor: '#10b981', alignItems: 'flex-end' },
+    statusOff: { backgroundColor: '#cbd5e1', alignItems: 'flex-start' },
+    statusInner: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#fff' }
 });
 
 export default AdminProfileScreen;

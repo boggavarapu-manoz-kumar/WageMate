@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // NOTE: When testing on Android Emulator, localhost doesn't work. Use 10.0.2.2
 // If testing on a real device over Wi-Fi, use your computer's local IP address (e.g., 192.168.1.5)
-const BASE_URL = 'http://10.247.206.82:5000/api';
+const BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.0.2:5000/api';
 
 // Create an Axios instance
 const api = axios.create({

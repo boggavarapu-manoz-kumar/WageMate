@@ -59,7 +59,7 @@ const calculateDailySalary = (worker, attendanceData) => {
  * @param {Array} attendanceRecords - Array of attendance documents for the period
  * @returns {Object} Comprehensive salary breakdown
  */
-const calculateAggregateSalary = (attendanceRecords) => {
+const calculateAggregateSalary = (startDate, endDate, attendanceRecords, payments = []) => {
     let totalBaseEarned = 0;
     let totalOvertimePay = 0;
     let totalBonus = 0;
@@ -94,7 +94,59 @@ const calculateAggregateSalary = (attendanceRecords) => {
     });
 
     const grossEarnings = totalBaseEarned + totalOvertimePay + totalBonus + totalCustomPayments;
-    const netPayable = grossEarnings - totalAdvances;
+    
+    let totalAlreadyPaid = 0;
+    if (payments && payments.length > 0) {
+        payments.forEach(p => {
+            totalAlreadyPaid += p.amount;
+        });
+    }
+
+    const netPayable = Math.max(0, grossEarnings - totalAdvances - totalAlreadyPaid);
+
+    // Generate daily history array
+    let dailyHistory = [];
+    if (startDate && endDate) {
+        let currentDate = new Date(startDate);
+        const end = new Date(endDate);
+
+        while (currentDate <= end) {
+            const dateStr = currentDate.toISOString().split('T')[0];
+            const record = attendanceRecords.find(r => r.date === dateStr);
+            const isSettled = payments.some(p => dateStr >= p.periodStart && dateStr <= p.periodEnd);
+
+            let status = 'Absent';
+            let amount = 0;
+            let advance = 0;
+
+            if (record) {
+                status = record.status;
+                const otPay = (record.overtimeHours || 0) * (record.overtimeRate || 0);
+                const bonus = record.extraBonus || 0;
+                const custom = record.customPayment || 0;
+                advance = record.advancePaid || 0;
+                const calculatedBaseForDay = record.totalDaySalary - otPay - bonus - custom + record.advancePaid;
+                
+                amount = calculatedBaseForDay + otPay + bonus + custom; 
+            } else if (daysAbsent > 0 || attendanceRecords.length > 0) {
+                // If there's no record, we assume it's Absent
+            }
+
+            const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+            const dayName = days[currentDate.getUTCDay()];
+
+            dailyHistory.push({
+                date: dateStr,
+                dayName: dayName,
+                status: status,
+                amount: Number(amount.toFixed(2)),
+                advance: Number(advance.toFixed(2)),
+                isSettled: isSettled
+            });
+
+            currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+        }
+    }
 
     return {
         summary: {
@@ -110,8 +162,10 @@ const calculateAggregateSalary = (attendanceRecords) => {
             totalCustomPayments: Number(totalCustomPayments.toFixed(2)),
             grossEarnings: Number(grossEarnings.toFixed(2)),
             totalAdvancesDeducted: Number(totalAdvances.toFixed(2)),
+            totalAlreadyPaid: Number(totalAlreadyPaid.toFixed(2)),
             netPayable: Number(netPayable.toFixed(2)) // Final amount contractor needs to pay
-        }
+        },
+        dailyHistory
     };
 };
 

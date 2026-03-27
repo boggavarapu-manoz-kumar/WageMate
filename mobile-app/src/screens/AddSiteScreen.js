@@ -3,6 +3,7 @@ import {
     View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView,
     KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Image
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { siteAPI } from '../services/api';
 
 const AddSiteScreen = ({ navigation }) => {
@@ -15,6 +16,26 @@ const AddSiteScreen = ({ navigation }) => {
     const [submitting, setSubmitting] = useState(false);
 
     const defaultImage = 'https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&q=80&w=800';
+
+    const pickImage = async () => {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permission Required', 'We need gallery permissions to upload a site photo.');
+            return;
+        }
+
+        let result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [16, 9],
+            quality: 0.6,
+            base64: true,
+        });
+
+        if (!result.canceled && result.assets && result.assets.length > 0) {
+            setFormData({ ...formData, imageUrl: `data:image/jpeg;base64,${result.assets[0].base64}` });
+        }
+    };
 
     const handleSubmit = async () => {
         if (!formData.siteName || !formData.address) {
@@ -72,34 +93,22 @@ const AddSiteScreen = ({ navigation }) => {
                 </View>
 
                 {/* Image Preview Container */}
-                <View style={styles.previewContainer}>
+                <TouchableOpacity style={styles.previewContainer} onPress={pickImage} activeOpacity={0.8}>
                     <Image
                         source={{ uri: formData.imageUrl.trim() || defaultImage }}
                         style={styles.previewImage}
                     />
                     <View style={styles.previewOverlay}>
-                        <Text style={styles.previewText}>Cover Image Preview</Text>
+                        <Text style={styles.previewText}>📷 Tap to Upload Site Cover Photo</Text>
                     </View>
-                </View>
+                </TouchableOpacity>
 
                 <View style={styles.formCard}>
                     {renderInput('Project / Site Name', 'siteName', 'e.g., Downtown Plaza Build', 'default', true)}
                     {renderInput('Physical Address', 'address', 'Full location address', 'default', true, true)}
                     {renderInput('Initial Budget (₹)', 'budget', '0.00', 'numeric')}
 
-                    <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Cover Image URL <Text style={styles.optional}>(Optional)</Text></Text>
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Paste a direct image link (jpg/png)"
-                            placeholderTextColor="#94a3b8"
-                            value={formData.imageUrl}
-                            onChangeText={(text) => setFormData({ ...formData, imageUrl: text })}
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                        />
-                        <Text style={styles.helpText}>Leave blank to use the default construction image.</Text>
-                    </View>
+
 
                     <TouchableOpacity
                         style={[styles.submitBtn, submitting && styles.disabledBtn]}
